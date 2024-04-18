@@ -37,6 +37,7 @@ function help {
     echo "-n                    no cache option to build docker image"
     echo "-t <time_zone>        set time zone"
     echo "-u <uid>              replace uid"
+    echo "-a <arch>             target architecture (default=$arch, your architecture)"
     echo '-p ["<targets>"]      prebuild images'
     echo "-i                    build images"
     echo "-w                    build workspace"
@@ -58,6 +59,7 @@ build_dir=$scriptdir/cabot-common/docker
 option="--progress=auto"
 time_zone=$(cat /etc/timezone)
 uid=$UID
+arch=$(uname -m)
 prebuild=0
 build_image=0
 build_workspace=0
@@ -86,6 +88,13 @@ while [[ $# -gt 0 ]]; do
             uid=$2
 	    shift
             ;;
+    -a)
+        if [ $2 != $arch ]; then
+            export DOCKER_DEFAULT_PLATFORM=linux/$2
+        fi
+        arch=$2
+        shift
+        ;;
 	-p)
             prebuild=1
 	    if [[ $# -gt 1 ]] && [[ $2 != -* ]]; then
@@ -122,6 +131,7 @@ if $debug; then
     echo "option   : $option"
     echo "time_zone: $time_zone"
     echo "uid      : $uid"
+    echo "arch     : $arch"
     exit
 fi
 
@@ -129,9 +139,9 @@ if [[ $prebuild -eq 1 ]]; then
     for target in $prebuild_target; do
 	blue "# Prebuild $target"
 	if [ $target = "people" ]; then
-        ./cabot-$target/build-docker.sh -P $prefix -t $time_zone -u $uid -o "$option" -c "$camera_targets"
+        ./cabot-$target/build-docker.sh -P $prefix -t $time_zone -u $uid -o "$option" -c "$camera_targets" $arch
     else
-        ./cabot-$target/build-docker.sh -P $prefix -t $time_zone -u $uid -o "$option"
+        ./cabot-$target/build-docker.sh -P $prefix -t $time_zone -u $uid -a $arch -o "$option"
     fi
 	if [ $? -ne 0 ]; then exit 1; fi
     done
@@ -139,7 +149,6 @@ fi
 
 readarray -t dcfiles < <(ls docker-compose* | grep -v jetson_mate | grep -v vs)
 
-arch=$(uname -m)
 if [ $arch != "x86_64" ] && [ $arch != "aarch64" ]; then
     red "Unknown architecture: $arch"
     exit 1
